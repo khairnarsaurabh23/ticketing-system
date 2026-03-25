@@ -128,7 +128,7 @@ ticketing-system/
 ## Getting Started
 
 ```bash
-git clone <repo>
+git clone https://github.com/khairnarsaurabh23/ticketing-system.git
 cd ticketing-system
 
 cp .env.example .env
