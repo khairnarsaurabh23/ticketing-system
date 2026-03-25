@@ -1,0 +1,122 @@
+
+services:
+  # ─── Infrastructure ──────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: ticketing_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ticketing_root_pass
+      MYSQL_DATABASE: ticketing_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: >
+      --max_connections=500
+      --innodb_buffer_pool_size=256M
+      --innodb_log_file_size=64M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pticket_root_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ticketing_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─── Application Services ────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: ticketing_auth
+    restart: always
+    environment:
+      NODE_ENV: production
+      AUTH_PORT: 3001
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ticketing_root_pass
+      MYSQL_DATABASE: ticketing_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: super_secret_jwt_key_change_in_production
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_SECRET: super_secret_refresh_key_change_in_production
+      JWT_REFRESH_EXPIRES_IN: 7d
+    ports:
+      - "3001:3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ticket-service:
+    build:
+      context: ./ticket-service
+      dockerfile: Dockerfile
+    container_name: ticketing_ticket
+    restart: always
+    environment:
+      NODE_ENV: production
+      TICKET_PORT: 3002
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ticketing_root_pass
+      MYSQL_DATABASE: ticketing_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDLOCK_RETRY_COUNT: 10
+      REDLOCK_RETRY_DELAY: 200
+      REDLOCK_RETRY_JITTER: 200
+    ports:
+      - "3002:3002"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: ticketing_gateway
+    restart: always
+    environment:
+      NODE_ENV: production
+      GATEWAY_PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      TICKET_SERVICE_URL: http://ticket-service:3002
+      JWT_SECRET: super_secret_jwt_key_change_in_production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RATE_LIMIT_WINDOW_MS: 60000
+      RATE_LIMIT_MAX: 200
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - ticket-service
+
+volumes:
+  mysql_data:

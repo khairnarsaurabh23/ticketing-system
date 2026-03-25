@@ -1,0 +1,25 @@
+{
+  "name": "ticketing-system",
+  "version": "1.0.0",
+  "description": "High-performance ticketing system with Node.js clustering, Redis Redlock, MySQL, JWT auth, and rate limiting",
+  "private": true,
+  "workspaces": [
+    "api-gateway",
+    "auth-service",
+    "ticket-service",
+    "shared"
+  ],
+  "scripts": {
+    "install:all": "npm install --workspaces",
+    "dev": "concurrently \"npm run dev --workspace=api-gateway\" \"npm run dev --workspace=auth-service\" \"npm run dev --workspace=ticket-service\"",
+    "start": "concurrently \"npm run start --workspace=api-gateway\" \"npm run start --workspace=auth-service\" \"npm run start --workspace=ticket-service\"",
+    "migrate": "npm run migrate --workspace=ticket-service && npm run migrate --workspace=auth-service",
+    "seed:local": "node db/seed.js",
+    "load-test": "node load-test/run.js",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

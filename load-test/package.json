@@ -1,0 +1,14 @@
+{
+  "name": "@ticketing/load-test",
+  "version": "1.0.0",
+  "description": "Load test for the ticketing system — targets 50 K concurrent requests",
+  "scripts": {
+    "test:full": "node run.js",
+    "test:auth": "node scenarios/authScenario.js",
+    "test:tickets": "node scenarios/ticketScenario.js"
+  },
+  "dependencies": {
+    "autocannon": "^7.14.0",
+    "dotenv": "^16.4.1"
+  }
+}
